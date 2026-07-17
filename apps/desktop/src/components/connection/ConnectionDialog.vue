@@ -45,6 +45,7 @@ import { JDBCX_DEFAULT_URL, JDBCX_DRIVER_PROFILE, JDBCX_JDBC_DRIVER_CLASS, ensur
 import { SQLITE_DATABASE_FILE_EXTENSIONS } from "@/lib/database/databaseFileDetection";
 import { connectionAttemptOriginalErrorMessage, connectionAttemptTimeoutMessage, connectionAttemptTimeoutMs } from "@/lib/connection/connectionAttemptTimeout";
 import { appendConnectionErrorHints } from "@/lib/connection/connectionErrorHints";
+import { postgresTlsModeForForm } from "@/lib/connection/postgresTlsMode";
 import { normalizeKafkaBootstrapServers } from "@/lib/connection/kafkaBootstrapServers";
 import { detectMqUiAuthKind, isMqAuthKindAllowedForSystem, type MqUiAuthKind } from "@/lib/connection/mqAuth";
 import { driverInstallProgressPercent, type DriverInstallProgress } from "@/lib/connection/driverInstallProgressUi";
@@ -2046,11 +2047,7 @@ const mysqlClientKeyPath = computed({
 const nativePostgresTlsDatabaseTypes = new Set<DatabaseType>(["postgres", "redshift", "gaussdb", "kwdb", "opengauss"]);
 const supportsPostgresTlsOptions = computed(() => nativePostgresTlsDatabaseTypes.has(form.value.db_type));
 const postgresTlsMode = computed({
-  get: () => {
-    const value = normalizePostgresSslMode(getUrlParam(form.value.url_params, "sslmode"));
-    if (value) return value;
-    return form.value.ssl ? "require" : "disable";
-  },
+  get: () => postgresTlsModeForForm(getUrlParam(form.value.url_params, "sslmode"), form.value.ssl),
   set: (value: string) => {
     form.value.ssl = value !== "disable";
     form.value.url_params = setUrlParam(form.value.url_params, "sslmode", value);
@@ -2920,22 +2917,6 @@ function applyMysqlTlsMode(params: string | undefined, mode: string): string {
   }
   next = setUrlParam(next, "verify_ca", "true");
   return setUrlParam(next, "verify_identity", "true");
-}
-
-function normalizePostgresSslMode(value: string): string {
-  switch (value.trim().toLowerCase()) {
-    case "disable":
-    case "prefer":
-    case "require":
-    case "verify-ca":
-    case "verify-full":
-      return value.trim().toLowerCase();
-    case "verify_identity":
-    case "verify-identity":
-      return "verify-full";
-    default:
-      return "";
-  }
 }
 
 function normalizeRedisSentinelNodes(value: string): string {
