@@ -3628,6 +3628,10 @@ func normalizeValue(value any, columnTypeName string) any {
 		}
 		return string(v)
 	case time.Time:
+		// Oracle DATE and plain TIMESTAMP are wall-clock values; adding an offset makes clients shift them.
+		if isOracleTimezoneLessDateTime(columnTypeName) {
+			return v.Format("2006-01-02T15:04:05.999999999")
+		}
 		return v.Format(time.RFC3339Nano)
 	case int64, float64, bool, string:
 		return v
@@ -3636,6 +3640,14 @@ func normalizeValue(value any, columnTypeName string) any {
 	default:
 		return fmt.Sprint(v)
 	}
+}
+
+func isOracleTimezoneLessDateTime(columnTypeName string) bool {
+	normalized := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(columnTypeName), " ", ""))
+	if normalized == "DATE" || normalized == "TIMESTAMPDTY" || normalized == "TIMESTAMP" {
+		return true
+	}
+	return strings.HasPrefix(normalized, "TIMESTAMP(") && strings.HasSuffix(normalized, ")")
 }
 
 func isOracleBinaryColumnType(columnTypeName string) bool {

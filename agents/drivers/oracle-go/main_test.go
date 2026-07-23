@@ -242,6 +242,36 @@ func TestNormalizeValueKeepsNonBinaryBytesAsText(t *testing.T) {
 	}
 }
 
+func TestNormalizeValueFormatsOracleTimezoneLessDateTimesAsWallClock(t *testing.T) {
+	value := time.Date(2026, time.July, 23, 13, 42, 13, 123456000, time.FixedZone("CST", 8*60*60))
+	tests := []string{
+		"DATE",
+		"TIMESTAMP",
+		"TIMESTAMP(6)",
+		"TimeStampDTY",
+	}
+
+	for _, columnType := range tests {
+		if got := normalizeValue(value, columnType); got != "2026-07-23T13:42:13.123456" {
+			t.Fatalf("normalizeValue time for %q = %#v, want wall-clock value", columnType, got)
+		}
+	}
+}
+
+func TestNormalizeValueKeepsOracleZonedDateTimeOffsets(t *testing.T) {
+	value := time.Date(2026, time.July, 23, 13, 42, 13, 123456000, time.FixedZone("CST", 8*60*60))
+	tests := []string{
+		"TimeStampTZ_DTY",
+		"TIMESTAMP WITH TIME ZONE",
+	}
+
+	for _, columnType := range tests {
+		if got := normalizeValue(value, columnType); got != "2026-07-23T13:42:13.123456+08:00" {
+			t.Fatalf("normalizeValue time for %q = %#v, want RFC3339 offset", columnType, got)
+		}
+	}
+}
+
 func TestNormalizeDDLObjectType(t *testing.T) {
 	tests := map[string]string{
 		"":                  "",
