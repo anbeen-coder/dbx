@@ -283,7 +283,22 @@ jobs:
     needs: [bump-versions, build-agents, build-oracle-native, build-xugu-native, build-kingbase-native, build-jre]
     runs-on: ubuntu-latest
     steps:
+      - name: Create DBX bot release token
+        id: release-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.DBX_BOT_APP_ID }}
+          private-key: ${{ secrets.DBX_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: dbx
+          permission-contents: write
+          # Moving agents-latest across commits that modify workflow files
+          # requires the GitHub App's dedicated Workflows permission.
+          permission-workflows: write
+
       - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.release-token.outputs.token }}
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -537,13 +552,14 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ steps.release-token.outputs.token }}
           files: release/*
           body_path: RELEASE_NOTES.md
           make_latest: false
 
       - name: Update agents-latest GitHub release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.release-token.outputs.token }}
         run: |
           git tag -f agents-latest "$GITHUB_SHA"
           git push origin refs/tags/agents-latest --force
